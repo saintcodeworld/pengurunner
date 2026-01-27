@@ -64,6 +64,9 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
         }
     };
 
+    // Frame Rate Independence
+    const lastFrameTimeRef = useRef<number>(0);
+
     const initGame = useCallback(() => {
         configRef.current = GAME_CONFIG[difficulty];
         penguinRef.current = { x: 50, y: 150 - PENGUIN_SIZE, dy: 0, grounded: true };
@@ -72,12 +75,14 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
         lastMilestoneRef.current = 0;
         lastBirdMilestoneRef.current = 0;
         speedRef.current = configRef.current.speed;
+        lastFrameTimeRef.current = performance.now(); // Reset time
         setScore(0);
         setSessionReward(0);
         setGameState('PLAYING');
         playSound(startAudio.current);
     }, [difficulty]);
 
+    // ... (useEffect for mining/idle stays same)
     useEffect(() => {
         if (isMining && gameState === 'IDLE') {
             initGame();
@@ -93,6 +98,9 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
         }
         const p = penguinRef.current;
         if (p.grounded) {
+            // Jump strength does NOT need dt scaling if applied instantaneously as velocity, 
+            // but gravity handling usually implies consistent units. 
+            // Standard approach: Velocity is pixels/frame @ 60fps.
             p.dy = configRef.current.jumpStrength;
             p.grounded = false;
             playSound(jumpAudio.current);
@@ -127,7 +135,16 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        const loop = () => {
+        const loop = (timestamp: number) => {
+            if (!lastFrameTimeRef.current) lastFrameTimeRef.current = timestamp;
+            const deltaTime = timestamp - lastFrameTimeRef.current;
+            lastFrameTimeRef.current = timestamp;
+
+            // Target 60 FPS (approx 16.67ms per frame)
+            // dtFactor will be ~1.0 for 60hz, ~0.5 for 120hz, ~0.25 for 240hz
+            // We cap dt to avoid huge jumps if tab is inactive
+            const dt = Math.min(deltaTime, 100) / 16.67;
+
             const width = canvas.width;
             const height = canvas.height;
             const groundY = height - 10;
@@ -138,7 +155,7 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
             // 1. Dynamic Speed
             if (isPlaying) {
                 if (speedRef.current < 13) {
-                    speedRef.current += 0.001;
+                    speedRef.current += 0.001 * dt; // Scale acceleration
                 }
             }
 
@@ -149,8 +166,8 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                 const isHoldingJump = keysPressed.current['Space'] || keysPressed.current['ArrowUp'];
                 const gravity = (p.dy < 0 && isHoldingJump) ? cfg.gravity * 0.5 : cfg.gravity;
 
-                p.dy += gravity;
-                p.y += p.dy;
+                p.dy += gravity * dt; // Scale gravity
+                p.y += p.dy * dt;     // Scale velocity application
 
                 // Ground Collision
                 if (p.y + PENGUIN_SIZE >= groundY) {
@@ -169,15 +186,19 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                 obstaclesRef.current.forEach(obs => {
                     // Birds fly towards the player faster than the ground moves
                     const moveSpeed = obs.type === 'bird' ? speedRef.current + 3 : speedRef.current;
-                    obs.x -= moveSpeed;
+                    obs.x -= moveSpeed * dt; // Scale movement
                 });
                 if (obstaclesRef.current.length > 0 && obstaclesRef.current[0].x < -100) {
                     obstaclesRef.current.shift();
                 }
             }
 
-            // Obstacle Spawning
+            // Obstacle Spawning relies on distance, which relies on Score.
+            // Score usually increments by speed. 
             if (isPlaying) {
+                scoreRef.current += speedRef.current * dt; // Scale score increment
+                // The rest of logic uses limits based on scoreRef, so it auto-adjusts.
+
                 const currentDistM = Math.floor(scoreRef.current / 50);
 
                 // Spawn Bird every 25m
