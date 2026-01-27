@@ -6,6 +6,7 @@ interface CaptchaChallengeProps {
     onSuccess: (difficulty: CaptchaDifficulty) => void;
     onStart: () => void;
     onMilestone: (distance: number) => void;
+    onGameOver?: (score: number) => void;
     isMining: boolean;
 }
 
@@ -19,12 +20,13 @@ const PENGUIN_SIZE = 30;
 const OBSTACLE_WIDTH = 20;
 const OBSTACLE_HEIGHT = 40;
 
-const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess, onStart, onMilestone, isMining }) => {
+const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess, onStart, onMilestone, onGameOver, isMining }) => {
     const [difficulty, setDifficulty] = useState<CaptchaDifficulty>(CaptchaDifficulty.HARD);
     const [isExternalMining, setIsExternalMining] = useState(false); // Replaces 'loading' for UI state
     const [gameState, setGameState] = useState<'IDLE' | 'PLAYING' | 'GAME_OVER' | 'VICTORY'>('IDLE');
     const [score, setScore] = useState(0);
     const [highScore, setHighScore] = useState(0);
+    const [volume, setVolume] = useState(0.3); // Default volume 30%
 
 
     // We'll define initGame first then use another useEffect if needed, 
@@ -59,6 +61,7 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
 
     const playSound = (audio: HTMLAudioElement | null) => {
         if (audio) {
+            audio.volume = volume;
             audio.currentTime = 0;
             audio.play().catch(e => console.error("Sound play failed:", e));
         }
@@ -111,6 +114,11 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            // Ignore if typing in an input or textarea
+            if (e.target instanceof HTMLElement && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
+                return;
+            }
+
             keysPressed.current[e.code] = true;
             if (e.code === 'Space' || e.code === 'ArrowUp') {
                 e.preventDefault();
@@ -297,6 +305,7 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                     setGameState('GAME_OVER');
                     playSound(gameOverAudio.current);
                     if (scoreRef.current > highScore) setHighScore(Math.floor(scoreRef.current));
+                    if (onGameOver) onGameOver(scoreRef.current);
                     return; // Stop updating
                 }
             }
@@ -562,15 +571,27 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                 ctx.font = 'bold 16px "JetBrains Mono"';
                 ctx.fillStyle = '#000000'; // Black text for contrast on white button
                 ctx.textAlign = 'center';
-                ctx.fillText('START THE GAME', width / 2, height / 2 + 6);
+                ctx.fillText('START GAME', width / 2, height / 2 + 6);
             } else if (gameState === 'GAME_OVER') {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, width, height);
 
-                ctx.font = 'bold 24px "JetBrains Mono"';
+                // Draw Restart Button
+                const btnW = 200;
+                const btnH = 50;
+                const btnX = width / 2 - btnW / 2;
+                const btnY = height / 2 - btnH / 2;
+
                 ctx.fillStyle = '#ef4444';
+                ctx.fillRect(btnX, btnY, btnW, btnH);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(btnX, btnY, btnW, btnH);
+
+                ctx.font = 'bold 20px "JetBrains Mono"';
+                ctx.fillStyle = '#ffffff';
                 ctx.textAlign = 'center';
-                ctx.fillText('PRESS SPACE TO RETRY', width / 2, height / 2);
+                ctx.fillText('RESTART GAME', width / 2, height / 2 + 8);
             } else if (gameState === 'VICTORY') {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
                 ctx.fillRect(0, 0, width, height);
@@ -636,6 +657,22 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                         </div>
                     </div>
                 )}
+
+                {/* Volume Control Overlay */}
+                <div className="absolute top-2 left-2 z-20 flex items-center gap-2 bg-black/40 backdrop-blur px-2 py-1 rounded-lg border border-white/10" onClick={(e) => e.stopPropagation()}>
+                    <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={volume}
+                        onChange={(e) => setVolume(parseFloat(e.target.value))}
+                        className="w-16 h-1 bg-zinc-600 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                    />
+                </div>
             </div>
             <div className="flex justify-between items-center px-1 mb-4">
                 <span className="text-[10px] uppercase tracking-widest text-zinc-400 font-bold">
@@ -661,7 +698,7 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                     }}
                     className={`neo-btn w-full ${gameState === 'PLAYING' ? 'neo-btn-secondary' : 'neo-btn-primary'}`}
                 >
-                    {gameState === 'PLAYING' ? 'JUMP' : gameState === 'GAME_OVER' ? 'PRESS SPACE TO RETRY' : 'START THE GAME'}
+                    {gameState === 'PLAYING' ? 'JUMP' : gameState === 'GAME_OVER' ? 'RESTART GAME' : 'START GAME'}
                 </button>
             </div>
         </div>

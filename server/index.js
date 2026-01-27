@@ -244,9 +244,64 @@ const COOLDOWN_MS = 2000;
 
 const userCooldowns = new Map();
 
+// Leaderboard Logic
+const leaderboardPath = path.join(__dirname, 'leaderboard.json');
+let leaderboard = [];
+
+// Load leaderboard
+if (fs.existsSync(leaderboardPath)) {
+    try {
+        leaderboard = JSON.parse(fs.readFileSync(leaderboardPath, 'utf8'));
+    } catch (e) {
+        console.error('Failed to load leaderboard', e);
+    }
+}
+
+const saveLeaderboard = () => {
+    try {
+        fs.writeFileSync(leaderboardPath, JSON.stringify(leaderboard, null, 2));
+    } catch (e) {
+        console.error('Failed to save leaderboard', e);
+    }
+};
+
 io.on('connection', (socket) => {
     console.log(`👤 User joined: ${socket.id}`);
     socket.emit('chat_history', chatHistory);
+    socket.emit('leaderboard_update', leaderboard);
+
+    socket.on('submit_score', (data) => {
+        const { user, score } = data;
+        if (!user || typeof score !== 'number') return;
+
+        // Check if user already exists
+        const existingEntry = leaderboard.find(e => e.user === user);
+        let updated = false;
+
+        if (existingEntry) {
+            if (score > existingEntry.score) {
+                existingEntry.score = score;
+                existingEntry.timestamp = new Date().toISOString();
+                updated = true;
+            }
+        } else {
+            leaderboard.push({
+                user,
+                score,
+                timestamp: new Date().toISOString()
+            });
+            updated = true;
+        }
+
+        if (updated) {
+            // Sort by score desc, keep top 50
+            leaderboard.sort((a, b) => b.score - a.score);
+            if (leaderboard.length > 50) leaderboard.length = 50;
+
+            saveLeaderboard();
+            io.emit('leaderboard_update', leaderboard);
+        }
+    });
 
     socket.on('send_message', (data) => {
         const now = Date.now();
