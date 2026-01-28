@@ -353,10 +353,10 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
 
                 // CA Text in background
                 ctx.save();
-                ctx.font = 'bold 32px "JetBrains Mono"';
+                ctx.font = 'bold 24px "JetBrains Mono"';
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
                 ctx.textAlign = 'center';
-                ctx.fillText('CA: BLABBLABLA', width / 2, height / 2.5);
+                ctx.fillText('CA: ANiZCmwazUpnKAhaHnb7RDK7rYNzjGXLogiigRTWpump', width / 2, height / 2.5);
                 ctx.restore();
 
                 const drawLayer = (color: string, speedMod: number, yBase: number, frequency: number, amplitude: number) => {
