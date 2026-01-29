@@ -102,26 +102,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, wallet }
                         </p>
                     </div>
 
-                    <div className="h-px bg-zinc-800 my-6" />
 
-                    {/* Support Section */}
-                    <div className="bg-zinc-950 rounded-xl p-5 border border-zinc-800 flex items-center justify-between">
-                        <div>
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wide">Need Assistance?</h3>
-                            <p className="text-xs text-zinc-500 mt-1">Contact straight to dev</p>
-                        </div>
-                        <a
-                            href="https://t.me/bridgesoldev"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="neo-btn neo-btn-sm flex items-center gap-2"
-                        >
-                            <svg className="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.16.16-.295.295-.605.295l.213-3.054 5.56-5.022c.242-.213-.054-.333-.373-.121l-6.869 4.326-2.962-.924c-.643-.204-.657-.643.136-.954l11.566-4.458c.538-.196 1.006.128.832.944z" />
-                            </svg>
-                            Telegram
-                        </a>
-                    </div>
 
                 </div>
             </div>
