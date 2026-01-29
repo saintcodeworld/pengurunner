@@ -91,7 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
         {/* Social Link - Moved here */}
         <a
-          href="#"
+          href="https://x.com/i/communities/2016720760199434580"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-xl flex items-center justify-center gap-3 hover:bg-black/60 transition-all duration-300 group cursor-pointer w-full max-w-md mx-auto"
