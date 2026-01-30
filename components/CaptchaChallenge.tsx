@@ -374,7 +374,7 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
 
                 // Draw background text
                 ctx.save();
-                ctx.font = 'bold 32px "JetBrains Mono"';
+                ctx.font = 'bold 22px "JetBrains Mono"';
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.4)'; // Slightly lower opacity for center placement
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
