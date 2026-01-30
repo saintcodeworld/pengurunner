@@ -4,7 +4,7 @@ import LightRays from './LightRays';
 import SignInModal from './SignInModal';
 import { generateSolanaWallet, saveWalletToStorage, WalletData } from '../utils/solanaWallet';
 
-import penguinLogo from '../icons/penguin.svg';
+import elonLogo from '../icons/elon.png';
 
 interface SignupPageProps {
     onWalletGenerated: (wallet: WalletData) => void;
@@ -60,27 +60,15 @@ const SignupPage: React.FC<SignupPageProps> = ({ onWalletGenerated }) => {
 
     return (
         <div
-            className="min-h-screen flex flex-col text-white selection:bg-purple-500/30 relative bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: "url('/dashboard_pixel_bg.png')" }}
+            className="min-h-screen flex flex-col text-white selection:bg-purple-500/30 relative"
+            style={{
+                backgroundImage: 'url(/signup_bg.jpg)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+            }}
         >
-            {/* Animated DotGrid Background */}
-            {/* LightRays Background */}
-            <div className="absolute inset-0 z-0">
-                <LightRays
-                    raysColor="#ffffff"
-                    raysOrigin="top-center"
-                    raysSpeed={1}
-                    lightSpread={1}
-                    rayLength={2}
-                    pulsating={false}
-                    fadeDistance={1}
-                    saturation={1}
-                    followMouse={true}
-                    mouseInfluence={0.1}
-                    noiseAmount={0}
-                    distortion={0}
-                />
-            </div>
+
 
             {/* Content Layer */}
             <div className="relative z-10 flex items-center justify-center min-h-screen px-6">
@@ -90,10 +78,10 @@ const SignupPage: React.FC<SignupPageProps> = ({ onWalletGenerated }) => {
                         {/* Logo/Brand */}
                         <div className="mb-8">
                             <div className="mb-6 flex justify-center">
-                                <img src={penguinLogo} alt="Pengu Runner" className="w-24 h-24" />
+                                <img src={elonLogo} alt="Elon Runner" className="w-24 h-24" />
                             </div>
                             <h1 className="text-4xl font-bold text-white mb-3">
-                                Pengu Runner
+                                Elon Runner
                             </h1>
                             <p className="text-white text-lg">
                                 Create your solana wallet

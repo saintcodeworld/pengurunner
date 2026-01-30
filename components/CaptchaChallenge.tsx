@@ -16,7 +16,7 @@ const GAME_CONFIG = {
     [CaptchaDifficulty.HARD]: { speed: 6, gravity: 0.7, jumpStrength: -12, gapMin: 100, gapMax: 220, winScore: 2000 },
 };
 
-const PENGUIN_SIZE = 30;
+const ELON_SIZE = 150;
 const OBSTACLE_WIDTH = 20;
 const OBSTACLE_HEIGHT = 40;
 
@@ -41,21 +41,64 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
     const requestRef = useRef<number>();
 
     // Game State Refs (for Loop)
-    const penguinRef = useRef({ x: 50, y: 0, dy: 0, grounded: true });
-    const obstaclesRef = useRef<{ x: number; width: number; height: number; type: 'iceberg'; y: number }[]>([]);
+    const elonRef = useRef({ x: 50, y: 0, dy: 0, grounded: true });
+    const elonSpriteRef = useRef<HTMLImageElement | null>(null);
+    const flagBgRef = useRef<HTMLImageElement | null>(null);
+    const obstaclesRef = useRef<{ x: number; width: number; height: number; type: 'duststorm'; y: number; warned?: boolean }[]>([]);
     const scoreRef = useRef(0);
     const lastMilestoneRef = useRef(0);
     const speedRef = useRef(0);
     const configRef = useRef(GAME_CONFIG[CaptchaDifficulty.HARD]);
 
+    // Dust storm effect state
+    const dustStormRef = useRef({ active: false, opacity: 0, particles: [] as { x: number; y: number; speed: number; size: number }[] });
+    const lastDustSpawnRef = useRef(0);
+
     const startAudio = useRef<HTMLAudioElement | null>(null);
-    const jumpAudio = useRef<HTMLAudioElement | null>(null);
     const gameOverAudio = useRef<HTMLAudioElement | null>(null);
+    const warningAudio = useRef<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         startAudio.current = new Audio('/sounds/game-start.mp3');
-        jumpAudio.current = new Audio('/sounds/jump.wav');
         gameOverAudio.current = new Audio('/sounds/game-over.mp3');
+
+        // Create warning beep using Web Audio API
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const createBeep = () => {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.frequency.value = 880; // High pitch warning
+            oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.15);
+        };
+        (window as any).playWarningBeep = createBeep;
+
+        // Load Elon sprite
+        const elonImg = new Image();
+        elonImg.src = '/elon_sprite.png';
+        elonImg.onload = () => { elonSpriteRef.current = elonImg; };
+
+        // Load Mars background
+        const marsImg = new Image();
+        marsImg.src = '/mars_background.png';
+        marsImg.onload = () => { flagBgRef.current = marsImg; };
+
+        // Initialize dust particles
+        const particles = [];
+        for (let i = 0; i < 100; i++) {
+            particles.push({
+                x: Math.random() * 800,
+                y: Math.random() * 500,
+                speed: Math.random() * 3 + 2,
+                size: Math.random() * 4 + 1
+            });
+        }
+        dustStormRef.current.particles = particles;
     }, []);
 
     const playSound = (audio: HTMLAudioElement | null) => {
@@ -71,7 +114,7 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
 
     const initGame = useCallback(() => {
         configRef.current = GAME_CONFIG[difficulty];
-        penguinRef.current = { x: 50, y: 150 - PENGUIN_SIZE, dy: 0, grounded: true };
+        elonRef.current = { x: 50, y: 150 - ELON_SIZE, dy: 0, grounded: true };
         obstaclesRef.current = [];
         scoreRef.current = 0;
         lastMilestoneRef.current = 0;
@@ -97,14 +140,13 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
             if (gameState !== 'VICTORY') initGame();
             return;
         }
-        const p = penguinRef.current;
+        const p = elonRef.current;
         if (p.grounded) {
             // Jump strength does NOT need dt scaling if applied instantaneously as velocity, 
             // but gravity handling usually implies consistent units. 
             // Standard approach: Velocity is pixels/frame @ 60fps.
             p.dy = configRef.current.jumpStrength;
             p.grounded = false;
-            playSound(jumpAudio.current);
         }
     }, [gameState, initGame]);
 
@@ -165,8 +207,8 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                 }
             }
 
-            // Update Penguin
-            const p = penguinRef.current;
+            // Update Elon
+            const p = elonRef.current;
             if (isPlaying) {
                 // Variable Gravity
                 const isHoldingJump = keysPressed.current['Space'] || keysPressed.current['ArrowUp'];
@@ -176,13 +218,13 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                 p.y += p.dy * dt;     // Scale velocity application
 
                 // Ground Collision
-                if (p.y + PENGUIN_SIZE >= groundY) {
-                    p.y = groundY - PENGUIN_SIZE;
+                if (p.y + ELON_SIZE >= groundY) {
+                    p.y = groundY - ELON_SIZE;
                     p.dy = 0;
                     p.grounded = true;
                 }
             } else if (gameState === 'IDLE') {
-                p.y = groundY - PENGUIN_SIZE;
+                p.y = groundY - ELON_SIZE;
                 p.dy = 0;
                 p.grounded = true;
             }
@@ -207,50 +249,58 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
                 const currentDistM = Math.floor(scoreRef.current / 50);
 
 
-                // Normal Iceberg Spawning logic
+                // Mars Dust Storm Spawning logic
                 const lastObs = obstaclesRef.current[obstaclesRef.current.length - 1];
 
                 // Cap the gap so it doesn't get too wide at high speeds
-                // speed * 40 can reach 520+. Let's cap at 400.
-                const minGap = Math.min(speedRef.current * 35, 400);
-                const variance = Math.random() * 150;
+                const minGap = Math.min(speedRef.current * 40, 450);
+                const variance = Math.random() * 180;
 
                 // Failsafe: If no obstacles, force spawn immediately
                 const shouldSpawn = !lastObs || (width - lastObs.x > minGap + variance);
 
                 if (shouldSpawn) {
-                    const h = Math.floor(Math.random() * 25) + 30;
+                    const h = Math.floor(Math.random() * 30) + 35;
                     obstaclesRef.current.push({
                         x: width,
-                        width: OBSTACLE_WIDTH,
+                        width: OBSTACLE_WIDTH + 15,
                         height: h,
-                        type: 'iceberg',
-                        y: groundY - h
+                        type: 'duststorm',
+                        y: groundY - h,
+                        warned: false
                     });
-
-                    // 20% chance for double iceberg (slightly increased challenge)
-                    if (Math.random() < 0.20) {
-                        // Only if space permits visually
-                        obstaclesRef.current.push({
-                            x: width + OBSTACLE_WIDTH + 10, // tighter double
-                            width: OBSTACLE_WIDTH,
-                            height: Math.floor(Math.random() * 15) + 25,
-                            type: 'iceberg',
-                            y: groundY - (Math.floor(Math.random() * 15) + 25)
-                        });
-                    }
                 }
+
+                // Activate dust storm effect periodically
+                if (scoreRef.current - lastDustSpawnRef.current > 800) {
+                    dustStormRef.current.active = true;
+                    lastDustSpawnRef.current = scoreRef.current;
+                    setTimeout(() => {
+                        dustStormRef.current.active = false;
+                    }, 3000);
+                }
+
+                // Warning beep system - Neuralink audio cue
+                obstaclesRef.current.forEach(obs => {
+                    // Play warning beep when obstacle is 250-300 pixels away
+                    if (!obs.warned && obs.x < p.x + 300 && obs.x > p.x + 200) {
+                        obs.warned = true;
+                        if ((window as any).playWarningBeep) {
+                            (window as any).playWarningBeep();
+                        }
+                    }
+                });
 
             }
 
             // Collision Detection
             if (isPlaying) {
-                const hitMargin = PENGUIN_SIZE * 0.2; // 20% forgiveness
+                const hitMargin = ELON_SIZE * 0.2; // 20% forgiveness
                 const crash = obstaclesRef.current.some(obs => {
                     const px = p.x + hitMargin;
                     const py = p.y + hitMargin;
-                    const pw = PENGUIN_SIZE - (hitMargin * 2);
-                    const ph = PENGUIN_SIZE - (hitMargin * 2);
+                    const pw = ELON_SIZE - (hitMargin * 2);
+                    const ph = ELON_SIZE - (hitMargin * 2);
 
                     // Obstacle Hitbox
                     let ox = obs.x + (obs.width * 0.1);
@@ -309,167 +359,148 @@ const CaptchaChallenge: React.FC<CaptchaChallengeProps> = ({ onVerify, onSuccess
 
             // Drawing
             const drawBackground = () => {
-                const gradient = ctx.createLinearGradient(0, 0, 0, height);
-                gradient.addColorStop(0, '#0f172a');
-                gradient.addColorStop(1, '#1e293b');
-                ctx.fillStyle = gradient;
+                // Black background
+                ctx.fillStyle = '#000000';
                 ctx.fillRect(0, 0, width, height);
 
-                // CA Text in background
-                ctx.save();
-                ctx.font = 'bold 24px "JetBrains Mono"';
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-                ctx.textAlign = 'center';
-                ctx.fillText('6WUatBrFv4qKGgwDwvkSBnzmkKG5v6SQcZELuvyDpump', width / 2, height / 2.5);
-                ctx.restore();
-
-                const drawLayer = (color: string, speedMod: number, yBase: number, frequency: number, amplitude: number) => {
-                    ctx.fillStyle = color;
-                    ctx.beginPath();
-                    ctx.moveTo(0, height);
-                    for (let x = 0; x <= width; x += 10) {
-                        const offset = (x + scoreRef.current * speedMod) * frequency;
-                        const y = yBase - Math.abs(Math.sin(offset) * amplitude) - Math.abs(Math.cos(offset * 0.5) * amplitude * 0.5);
-                        ctx.lineTo(x, y);
-                    }
-                    ctx.lineTo(width, height);
-                    ctx.fill();
-                };
-                drawLayer('#334155', 0.2, height - 30, 0.01, 60); // Taller mountains for new height
-                drawLayer('#cbd5e1', 0.5, height - 10, 0.02, 25);
+                // Draw Mars background if loaded - covers entire canvas
+                if (flagBgRef.current) {
+                    ctx.globalAlpha = 0.8;
+                    // Source image is 1024x1024 but contains two 1024x512 images.
+                    // We crop the top half (0, 0, 1024, 512) and draw it to cover the whole canvas.
+                    ctx.drawImage(flagBgRef.current, 0, 0, 1024, 512, 0, 0, width, height);
+                    ctx.globalAlpha = 1.0;
+                }
             };
 
             drawBackground();
 
-            // Ground
-            ctx.fillStyle = '#27272a';
+            // Ground - Dusty Mars surface
+            ctx.fillStyle = '#3d1a10'; // Dark reddish brown
             ctx.fillRect(0, groundY, width, 10);
 
-            // Draw Obstacles
+            // Draw Dust Storm Obstacles (hidden rocks in the storm)
             obstaclesRef.current.forEach(obs => {
-                if (obs.type === 'iceberg') {
+                if (obs.type === 'duststorm') {
                     ctx.save();
                     ctx.translate(obs.x, groundY);
-                    const iceGradient = ctx.createLinearGradient(0, -obs.height, 0, 0);
-                    iceGradient.addColorStop(0, '#bae6fd');
-                    iceGradient.addColorStop(1, '#0ea5e9');
-                    ctx.fillStyle = iceGradient;
+
+                    // Draw the hidden rock/debris - Mars red colors
+                    const rockGradient = ctx.createLinearGradient(0, -obs.height, 0, 0);
+                    rockGradient.addColorStop(0, '#8B4513'); // Saddle brown
+                    rockGradient.addColorStop(0.5, '#CD853F'); // Peru
+                    rockGradient.addColorStop(1, '#A0522D'); // Sienna
+                    ctx.fillStyle = rockGradient;
+
+                    // Jagged rock shape
                     ctx.beginPath();
                     ctx.moveTo(0, 0);
-                    ctx.lineTo(obs.width / 2, -obs.height);
+                    ctx.lineTo(obs.width * 0.2, -obs.height * 0.6);
+                    ctx.lineTo(obs.width * 0.5, -obs.height);
+                    ctx.lineTo(obs.width * 0.8, -obs.height * 0.7);
                     ctx.lineTo(obs.width, 0);
                     ctx.closePath();
                     ctx.fill();
-                    // Detail
-                    ctx.strokeStyle = '#ffffff';
+
+                    // Add some texture/detail
+                    ctx.strokeStyle = '#654321';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.moveTo(obs.width / 2, -obs.height);
-                    ctx.lineTo(obs.width / 4, -obs.height / 2);
+                    ctx.moveTo(obs.width * 0.3, -obs.height * 0.4);
+                    ctx.lineTo(obs.width * 0.5, -obs.height * 0.8);
                     ctx.stroke();
                     ctx.restore();
                 }
             });
 
-            // Draw Penguin (same as before)
-            const drawPenguin = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+            // Draw Mars Dust Storm overlay effect
+            if (dustStormRef.current.active || dustStormRef.current.opacity > 0) {
+                // Fade in/out
+                if (dustStormRef.current.active && dustStormRef.current.opacity < 0.7) {
+                    dustStormRef.current.opacity += 0.02;
+                } else if (!dustStormRef.current.active && dustStormRef.current.opacity > 0) {
+                    dustStormRef.current.opacity -= 0.02;
+                }
+
+                // Draw orange-red dust overlay
+                ctx.fillStyle = `rgba(205, 92, 0, ${dustStormRef.current.opacity * 0.6})`;
+                ctx.fillRect(0, 0, width, height);
+
+                // Draw swirling dust particles
+                dustStormRef.current.particles.forEach(particle => {
+                    particle.x -= particle.speed * 2;
+                    if (particle.x < 0) {
+                        particle.x = width;
+                        particle.y = Math.random() * height;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(210, 105, 30, ${dustStormRef.current.opacity})`;
+                    ctx.fill();
+                });
+
+                // Add "DUST STORM!" warning text
+                if (dustStormRef.current.opacity > 0.3) {
+                    ctx.font = 'bold 24px "JetBrains Mono"';
+                    ctx.fillStyle = `rgba(255, 100, 50, ${Math.sin(Date.now() / 200) * 0.5 + 0.5})`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText('⚠ DUST STORM - LISTEN FOR NEURALINK ⚠', width / 2, 50);
+                }
+            }
+
+            // Draw Elon (using sprite image)
+            const drawElon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
                 const t = Date.now() / 150;
-                const isJumping = !penguinRef.current.grounded;
-                const rotation = isJumping ? Math.sin(t) * 0.05 : 0;
-                const bob = isJumping ? 0 : Math.sin(t) * 1.5;
+                const isJumping = !elonRef.current.grounded;
+                const rotation = isJumping ? Math.sin(t) * 0.1 : 0;
+                const bob = isJumping ? 0 : Math.sin(t) * 3;
+
+                // Stretch and squash factor
+                let stretchX = 1;
+                let stretchY = 1;
+
+                if (isJumping) {
+                    // Stretch when flying up/down
+                    const velocityFactor = Math.abs(elonRef.current.dy) * 0.02;
+                    stretchX = 1 - velocityFactor;
+                    stretchY = 1 + velocityFactor;
+                } else {
+                    // Subtle breathing/idling squash
+                    stretchX = 1 + Math.sin(t) * 0.02;
+                    stretchY = 1 - Math.sin(t) * 0.02;
+                }
 
                 ctx.save();
                 ctx.translate(x + size / 2, y + size / 2 + bob);
                 ctx.rotate(rotation);
+                ctx.scale(stretchX, stretchY); // Cartoon stretch
                 ctx.translate(-size / 2, -size / 2);
 
+                // Draw shadow if grounded
                 if (!isJumping) {
-                    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
                     ctx.beginPath();
-                    ctx.ellipse(size * 0.5, size * 0.95, size * 0.4, size * 0.08, 0, 0, Math.PI * 2);
+                    ctx.ellipse(size * 0.5, size * 0.95, (size * 0.4) * stretchX, (size * 0.08) * stretchY, 0, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
-                ctx.fillStyle = '#ff7f50';
-                ctx.beginPath();
-                ctx.ellipse(size * 0.3, size * 0.92, size * 0.15, size * 0.05, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.ellipse(size * 0.6, size * 0.92, size * 0.15, size * 0.05, 0, 0, Math.PI * 2);
-                ctx.fill();
-
-                const bodyGrad = ctx.createLinearGradient(0, 0, 0, size);
-                bodyGrad.addColorStop(0, '#334155');
-                bodyGrad.addColorStop(1, '#020617');
-                ctx.fillStyle = bodyGrad;
-
-                ctx.beginPath();
-                ctx.moveTo(size * 0.35, size * 0.05);
-                ctx.bezierCurveTo(size * 0.85, size * 0.05, size * 1.05, size * 0.5, size * 0.85, size * 0.9);
-                ctx.lineTo(size * 0.2, size * 0.9);
-                ctx.bezierCurveTo(size * 0.05, size * 0.6, size * 0.1, size * 0.1, size * 0.35, size * 0.05);
-                ctx.fill();
-
-                const bellyGrad = ctx.createRadialGradient(size * 0.4, size * 0.5, 0, size * 0.4, size * 0.5, size * 0.4);
-                bellyGrad.addColorStop(0, '#ffffff');
-                bellyGrad.addColorStop(1, '#f8fafc');
-                ctx.fillStyle = bellyGrad;
-                ctx.beginPath();
-                ctx.moveTo(size * 0.4, size * 0.2);
-                ctx.bezierCurveTo(size * 0.7, size * 0.2, size * 0.8, size * 0.5, size * 0.7, size * 0.85);
-                ctx.lineTo(size * 0.25, size * 0.85);
-                ctx.bezierCurveTo(size * 0.15, size * 0.6, size * 0.22, size * 0.2, size * 0.4, size * 0.2);
-                ctx.fill();
-
-                ctx.fillStyle = '#0f172a';
-                ctx.beginPath();
-                ctx.moveTo(size * 0.35, size * 0.05);
-                ctx.bezierCurveTo(size * 0.6, size * 0.05, size * 0.8, size * 0.15, size * 0.65, size * 0.4);
-                ctx.lineTo(size * 0.3, size * 0.4);
-                ctx.bezierCurveTo(size * 0.15, size * 0.2, size * 0.2, size * 0.05, size * 0.35, size * 0.05);
-                ctx.fill();
-
-                ctx.fillStyle = '#f97316';
-                ctx.beginPath();
-                ctx.moveTo(size * 0.65, size * 0.18);
-                ctx.lineTo(size * 0.92, size * 0.23);
-                ctx.lineTo(size * 0.65, size * 0.28);
-                ctx.fill();
-
-                ctx.fillStyle = '#c2410c';
-                ctx.beginPath();
-                ctx.moveTo(size * 0.65, size * 0.23);
-                ctx.lineTo(size * 0.88, size * 0.25);
-                ctx.lineTo(size * 0.65, size * 0.28);
-                ctx.fill();
-
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.arc(size * 0.55, size * 0.17, size * 0.04, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#000000';
-                ctx.beginPath();
-                ctx.arc(size * 0.56, size * 0.17, size * 0.02, 0, Math.PI * 2);
-                ctx.fill();
-
-                ctx.save();
-                ctx.translate(size * 0.45, size * 0.45);
-                const wingRot = isJumping ? -Math.PI / 4 + Math.sin(t * 2) * 0.3 : Math.sin(t) * 0.05;
-                ctx.rotate(wingRot);
-                ctx.fillStyle = 'rgba(0,0,0,0.4)';
-                ctx.beginPath();
-                ctx.ellipse(2, 2, size * 0.08, size * 0.25, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = bodyGrad;
-                ctx.beginPath();
-                ctx.ellipse(0, 0, size * 0.08, size * 0.25, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
+                // Draw Elon sprite if loaded, fallback to simple shape
+                if (elonSpriteRef.current) {
+                    ctx.drawImage(elonSpriteRef.current, 0, 0, size, size);
+                } else {
+                    // Fallback: simple silhouette
+                    ctx.fillStyle = '#1e40af';
+                    ctx.beginPath();
+                    ctx.arc(size * 0.5, size * 0.3, size * 0.25, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillRect(size * 0.3, size * 0.5, size * 0.4, size * 0.45);
+                }
 
                 ctx.restore();
             };
 
-            drawPenguin(ctx, p.x, p.y, PENGUIN_SIZE);
+            drawElon(ctx, p.x, p.y, ELON_SIZE);
 
             // Overlays
             if (gameState === 'IDLE') {

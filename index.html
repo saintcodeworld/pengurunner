@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pengu Runner</title>
+    <title>Elon Runner</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,7 +15,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1e293b;
+            background-color: #000000;
             color: #fafafa;
         }
 
@@ -35,14 +35,14 @@
             cursor: pointer;
             align-items: center;
             font-family: Consolas, 'Courier New', monospace;
-            border: solid #404c5d 1px;
+            border: solid #f97316 1px;
             font-size: 14px;
             font-weight: 600;
-            color: rgb(161, 161, 161);
+            color: rgb(255, 255, 255);
             transition: 500ms;
             border-radius: 5px;
             background: linear-gradient(145deg, #2e2d2d, #212121);
-            box-shadow: -1px -5px 15px #41465b, 5px 5px 15px #41465b,
+            box-shadow: -1px -5px 15px rgba(249, 115, 22, 0.2), 5px 5px 15px rgba(249, 115, 22, 0.2),
                 inset 5px 5px 10px #212121, inset -5px -5px 10px #212121;
         }
 
@@ -65,36 +65,36 @@
 
         /* Neo Button Variants */
         .neo-btn-primary {
-            background: linear-gradient(145deg, #f9fafb, #e5e7eb);
-            color: #0c0a09;
-            border-color: #ffffff;
-            box-shadow: 0 4px 20px rgba(255, 255, 255, 0.3),
-                inset 1px 1px 2px rgba(255, 255, 255, 0.8),
-                inset -1px -1px 2px rgba(0, 0, 0, 0.05);
-            text-shadow: none;
+            background: linear-gradient(145deg, #fb923c, #f97316);
+            color: #ffffff;
+            border-color: #ffedd5;
+            box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4),
+                inset 1px 1px 2px rgba(255, 255, 255, 0.5),
+                inset -1px -1px 2px rgba(0, 0, 0, 0.1);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
         }
 
         .neo-btn-primary:hover {
-            background: linear-gradient(145deg, #ffffff, #f1f5f9);
-            box-shadow: 0 8px 25px rgba(255, 255, 255, 0.4);
-            color: #000;
+            background: linear-gradient(145deg, #fdba74, #fb923c);
+            box-shadow: 0 8px 25px rgba(249, 115, 22, 0.6);
+            color: #ffffff;
         }
 
         .neo-btn-primary:active {
-            background: linear-gradient(145deg, #e5e7eb, #d1d5db);
-            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(145deg, #f97316, #ea580c);
+            box-shadow: inset 2px 2px 5px rgba(0, 0, 0, 0.2);
         }
 
         .neo-btn-secondary {
-            background: linear-gradient(145deg, #f1f5f9, #e2e8f0);
-            color: #475569;
-            border-color: #e2e8f0;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(145deg, #f97316, #ea580c);
+            color: #ffffff;
+            border-color: #fb923c;
+            box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3);
         }
 
         .neo-btn-secondary:hover {
-            background: linear-gradient(145deg, #f8fafc, #f1f5f9);
-            color: #1e293b;
+            background: linear-gradient(145deg, #fb923c, #f97316);
+            color: #ffffff;
         }
 
         .neo-btn-success {

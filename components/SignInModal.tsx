@@ -139,7 +139,7 @@ const SignInModal: React.FC<SignInModalProps> = ({ isOpen, onClose, onSignIn }) 
                                 <div>
                                     <p className="text-amber-400 font-medium mb-1">Security Notice</p>
                                     <p className="text-amber-300/80 text-sm">
-                                        Make sure you're on the official Pengu Runner website. Never enter your private key on untrusted sites.
+                                        Make sure you're on the official Elon Runner website. Never enter your private key on untrusted sites.
                                     </p>
                                 </div>
                             </div>

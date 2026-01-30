@@ -82,12 +82,12 @@ const App: React.FC = () => {
 
   // Show dashboard if wallet exists
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900 text-white selection:bg-white/30 relative">
+    <div className="min-h-screen flex flex-col bg-black text-white selection:bg-white/30 relative">
       {/* Dashboard Background */}
       <div
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 z-0"
         style={{
-          backgroundImage: "url('/dashboard_pixel_bg.png')",
+          backgroundColor: '#000000',
         }}
       />
 
@@ -120,7 +120,6 @@ const App: React.FC = () => {
             onSuccess={onSolveSuccess}
             onMilestone={onDistanceMilestone}
             onRequestWithdrawal={requestWithdrawal}
-            onRedeemSuccess={addPendingBalance}
           />
         </main>
 
